@@ -20,7 +20,7 @@ const firstClose = async (q) => { if (await q.locator("#howto[open]").count()) a
 const G = createRequire(import.meta.url)(path.join(root, "data.js"));
 const gen = readFileSync(path.join(root, "data.js"), "utf8");
 
-const PIN = "maru:ドーナツ形:円すい/正八面体/四角すい/ドーナツ形"; // 第1回の1問目（変わったら過去の日の問題が変わった印）
+const PIN = JSON.stringify(["maru", "ドーナツ形", ["円すい", "正八面体", "四角すい", "ドーナツ形"], ["平らな面は1つも無い", "まん中に、指が通りぬける穴がある"], "「円すい」ではないと分かる手がかりは？", ["e", "f", "c"], "f"]); // 第1回の1問目（答え・選び肢・手がかり・2段目。変わったら過去の日の問題が変わった印）
 // ---- 1. 問題の作り方（ブラウザを使わない）----
 // 形の表（ゲームとは別に書いた表。data.js の SHAPES がこれと合うかを見る）。名前 → [とがった角, まっすぐな辺, 平らな面, 曲がった面, 面の形, 穴]
 // 角のある形の数は算数の見取図の数（立方体 8・12・6 など）。円すいのとがった先は角1つ、円柱・円すい・半球のふちは曲がっているので辺に数えない
@@ -44,6 +44,8 @@ const SHAPE_KINDS = ["maru", "kado", "nimaru", "nikado", "chikai", "kazu"];
   for (const [id, p] of Object.entries(G.POLY)) { const E = new Set(); for (const f of p.F) for (let i = 0; i < f.length; i++) { const a = f[i], b = f[(i + 1) % f.length]; E.add(Math.min(a, b) + "-" + Math.max(a, b)); }
     const s = G.SHAPES.find((x) => x.poly === id); if (!s || s.v !== p.V.length || s.e !== E.size || s.f !== p.F.length || p.V.length - E.size + p.F.length !== 2) geo.push(id); }
   check("角のある形の絵（頂点と面）から数えた角・辺・面が、手がかりの数と同じ（角 − 辺 ＋ 面 ＝ 2）", geo.length === 0 && G.SHAPES.filter((s) => !s.c).every((s) => G.POLY[s.poly]), geo.join());
+  { const off = Object.entries(G.POLY).filter(([id]) => ["rippo", "hachi"].includes(id)).filter(([, p]) => { const d = p.V.map((v) => Math.hypot(...v)); return Math.max(...d) - Math.min(...d) > 0.01; }).map(([id]) => id);
+    check("立方体・正八面体の絵は、中心から頂点までの長さがそろう（ゆがんだ形を描かない。PR #1 の CodeRabbit）", off.length === 0, off.join()); }
   check("形の絵：13の形どれも絵がある（曲がった形も）・読み上げの名前が付く", G.SHAPES.every((s) => /<(path|circle|ellipse)/.test(G.svgBody(s.id)) && G.svgOf(s.id).includes(`aria-label="${s.name}"`)));
   const bad = {}, seen = {}, N = 3000;
   const val = (name, c) => TB[name][CI[c]];
@@ -70,6 +72,7 @@ const SHAPE_KINDS = ["maru", "kado", "nimaru", "nikado", "chikai", "kazu"];
           if (k.id === "nimaru" && P.opts.some((o) => !TB[o][3])) why.push("似たまるい形に角のある形");
           if (["nikado", "kazu"].includes(k.id) && P.opts.some((o) => TB[o][3])) why.push("似た角のある形にまるい形");
           if (G.BYNAME[T].f === 0 && cl.includes("k")) why.push("平らな面が無い形に面の形を言う");
+          if (k.id === "chikai" && cl.some((c) => P.opts.filter((o) => val(o, c) === val(T, c)).length < 2)) why.push("よく似た形なのに、手がかり1つだけで1つに決まる");
           // 2段目：正解の種類だけがほかの形とちがい、手がかりの中にある。まちがいの2つは同じ値
           const o = G.SHP[P.other];
           if (!o || o.name === T || !P.opts.includes(o.name) || !cl.includes(P.grp) || val(o.name, P.grp) === val(T, P.grp) || P.g2.filter((g) => g !== P.grp).some((g) => !CI.hasOwnProperty(g) || val(o.name, g) !== val(T, g))) why.push("2段目の答えが1つに決まらない");
@@ -115,7 +118,7 @@ const SHAPE_KINDS = ["maru", "kado", "nimaru", "nikado", "chikai", "kazu"];
   check(`2か月のうちに${G.KINDS.length}種類が全部出る・前の日と同じ組の日が少ない`, cover.size === G.KINDS.length && sameAsPrev < 20, `${cover.size}種類・前の日と同じ ${sameAsPrev}日`);
   // 過去の日の問題が変わらない（data.js を直したときの見張り。値は 2026-11-27 に作ったもの）
   const P0 = G.make(G.dailyTags("2026-11-27")[0]);
-  { const pin = `${P0.kind}:${P0.ans}:${P0.opts.join("/")}`; check("第1回（2026-11-27）の1問目が作ったときのまま（並べ替え・削除で過去の日の問題を変えない）", pin === PIN, pin); }
+  { const pin = JSON.stringify([P0.kind, P0.ans, P0.opts, P0.lines, P0.ask2, P0.g2, P0.grp]); check("第1回（2026-11-27）の1問目が作ったときのまま（並べ替え・削除で過去の日の問題を変えない）", pin === PIN, pin); }
 }
 
 // ---- 2. ファイルの中身 ----
@@ -170,6 +173,8 @@ const TODAY = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 const dayBefore = (n) => new Date(Date.parse(TODAY) - n * 864e5).toISOString().slice(0, 10);
 async function newPage(w = 390, ctx) {
   const c = ctx || await browser.newContext({ viewport: { width: w, height: 800 } });
+  // 期待値の TODAY とブラウザの日付をそろえる（QA の途中で日本時間の0時をまたいでも落ちない。PR #1 の CodeRabbit）。時計は TODAY の正午（日本時間）から進める
+  if (!ctx) await c.addInitScript((t0) => { const o = Date.now, s0 = o(); Date.now = () => t0 + (o() - s0); }, Date.parse(TODAY + "T03:00:00Z"));
   await c.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
   const p = await c.newPage();
   p.on("pageerror", (e) => errors.push(e.message));
@@ -512,7 +517,7 @@ try {
     const bad = [], small = [];
     for (const [w, fs] of [[320, 3], [390, 2], [320, 1]]) {
       const q = await newPage(w); await closeHow(q);
-      await q.evaluate((fs) => localStorage.setItem("swk-fs", String(fs)), fs); await q.reload(); await q.waitForTimeout(150);
+      await q.evaluate((fs) => (localStorage.setItem("swk-fs", String(fs)), localStorage.setItem("a11y-v1", JSON.stringify({ ...JSON.parse(localStorage.getItem("a11y-v1") || "{}"), fs: undefined }))), fs); await q.reload(); await q.waitForTimeout(150);
       for (const go of [null, "#go-d", "solve", "#go-cal", "#go-dex", "#go-ach", "#go-e"]) {
         if (go === "solve") { await solve(q); }
         else if (go) { await q.goto(url); await q.waitForTimeout(100); await q.click(go); }
@@ -554,7 +559,8 @@ try {
 
 // 深さの部品（shared-workflows template/qa/depth-check.mjs）
 { const e = await checkDepth(readFileSync(path.join(root, "depth.js"), "utf8")); check("depth.js（自信をかける・復習）の動き", e.length === 0, e.join(" / ")); }
-// 2段目の系統：どの種類にもある（3つのどれか）
+// 保存の失敗・とことんで降りる・記録の鍵の検査。途中で止まっても報告書を出す（PR #1 の CodeRabbit）
+try {
 { const q = await newPage(); await closeHow(q);
   check("保存に失敗したら、保存できるまで帯（#savewarn）で知らせ続け、保存できたら消す", await q.evaluate(async () => { const orig = Storage.prototype.setItem; Storage.prototype.setItem = function () { throw new Error("full"); }; __nm.save(() => {}); __nm.save(() => {}); const one = document.querySelectorAll("#savewarn").length === 1 && document.getElementById("savewarn").textContent.includes("保存できませんでした"); await new Promise((r) => setTimeout(r, 1500)); const stay = !!document.getElementById("savewarn"); Storage.prototype.setItem = orig; __nm.save(() => {}); return one && stay && !document.getElementById("savewarn"); }));
   await q.evaluate(() => __nm.start("e")); await q.waitForTimeout(100);
@@ -575,6 +581,11 @@ try {
   await q.evaluate(() => { localStorage.setItem("swk-v1", JSON.stringify({ v: 1, tut: true, days: {}, hdays: {}, adays: {}, dex: { constructor: 1, toString: 2, "maru": 1 }, runs: {}, kofi: {}, ach: {}, ebest: 0 })); }); await q.reload(); await q.waitForTimeout(150);
   check("記録に constructor などの鍵が入っても、話の帳と実績の種類に数えない（CodeRabbit funka-level#1）", (await q.textContent("#go-dex")).includes(`1/${G.KINDS.length}`) && await q.evaluate(() => __nm.tally(__nm.load()).kinds) === 1, await q.textContent("#go-dex"));
   await q.close(); }
+  { const q = await newPage(); await closeHow(q);
+    await q.evaluate((d) => { localStorage.setItem("swk-v1", JSON.stringify({ v: 1, tut: true, days: { [d]: { m: [] } }, hdays: { [d]: { m: [0] } }, adays: {}, dex: {}, runs: {}, kofi: {}, ach: {}, ebest: 0 })); }, TODAY); await q.reload(); await q.waitForTimeout(150);
+    check("問題の数がそろわない日の記録（m:[]・上級1問）は、終えた日に数えない（「今日の結果」「全部まちがいなし」にしない。PR #1 の CodeRabbit）", !(await q.textContent("#go-d")).includes("結果") && !(await q.textContent("#go-h")).includes("結果") && await q.evaluate((d) => !__nm.load().days[d] && !__nm.load().hdays[d], TODAY));
+    await q.close(); }
+} catch (e) { check("保存の失敗・記録の鍵の検査が最後まで動く", false, String(e.stack || e).split("\n").slice(0, 2).join(" ")); }
 { const bad = G.KINDS.filter((k) => { for (let i = 0; i < 200; i++) { const P = G.make(`${k.id}|g${i}`); if (!P.g2.includes(P.grp) || !G.GROUPS[P.grp]) return true; } return false; }).map((k) => k.id), used = new Set(); for (const k of SHAPE_KINDS) for (let i = 0; i < 300; i++) used.add(G.make(`${k}|g${i}`).grp);
   check("2段目：どの種類にもあり、答えは3つの中にある・形の問題の2段目は手がかりの5つの種類（角・辺・面・面の形・穴）を全部使う（曲がった面がちがう2つの形は角や辺もちがい、同じ値の手がかりが2つそろわないので2段目の答えにならない）", bad.length === 0 && ["v", "e", "f", "k", "h"].every((g) => used.has(g)), bad.join(",") + " " + [...used].join()); }
 // 引き継ぎコード（shared-workflows template/qa/transfer-check.mjs）
@@ -587,7 +598,7 @@ try {
 // 「やってみる」のボタンに hidden が付かず、core-check が見えないボタンを30秒押しに行って止まる（ひな形 core-check の直しは shared-workflows で）。
 // はじめての案内は、このファイルの上の検査（はじめて開くと出る・← で戻ると終わる）で見る
 try { await checkCore({ browser, url, check, first: false }); } catch (e) { check("game-core の検査が最後まで動く", false, String(e).split("\n")[0]); }
-await browser.close();
+await browser.close().catch(() => {});
 server.close();
 check("画面のエラーが無い", errors.length === 0, errors.slice(0, 3).join(" | "));
 

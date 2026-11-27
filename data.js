@@ -136,12 +136,14 @@
     }
     return null;
   }
-  function shapeQ(R, pickT, pickD, cats, max) {
-    for (let t = 0; t < 40; t++) {
+  function shapeQ(R, pickT, pickD, cats, max, alone) {
+    for (let t = 0; t < (alone ? 400 : 40); t++) {
       const T = pickT(R), ds = pickD(R, T);
       if (!T || !ds || ds.length !== 3) continue;
       const use = clueSet(R, T, ds, cats, max);
       if (!use) continue;
+      // alone：手がかりを1つだけ見ると、どれも2つ以上の形が残る（よく似た形は、手がかりを合わせて初めて1つに決まる。PR #1 の CodeRabbit）
+      if (alone && use.some((c) => ds.every((d) => differ(T, d, c)))) continue;
       const sec = second(R, T, ds, use);
       if (!sec) continue;
       const opts = shuffle(R, [T, ...ds]).map((s) => s.name);
@@ -201,7 +203,7 @@
     // ---- むずかしい ----
     K("chikai", 2, "locke", "よく似た形", "1つの手がかりで、2つ以上の絵が残る。手がかりを全部合わせると？", "手がかりを1つずつ、絵の形に当てはめる",
       "よく似た形は、1つの手がかりでは分けられません。いくつかの手がかりを合わせると、1つに決まります。",
-      (R) => shapeQ(R, anyOf(POOL), near, CATS, 3)),
+      (R) => shapeQ(R, anyOf(POOL), near, CATS, 3, true)),
     K("kazu", 2, "locke", "数だけの手がかり", "角・辺・面の数を、絵の中で数える。見えない後ろ側もある", "見えている角や面から、後ろ側の数も考える",
       "角の数・辺の数・面の数だけでも、形は分けられます。角のある形では「角 − 辺 ＋ 面 ＝ 2」になります（オイラーの多面体定理）。",
       (R) => shapeQ(R, anyOf(FLAT), randD(FLAT), ["v", "e", "f"], 3)),
@@ -266,7 +268,7 @@
     sanchu: (() => { const T = [[-1.05, -0.75], [1.05, -0.75], [0, 0.95]], V = [...T.map(([x, y]) => [x, y, 0.95]), ...T.map(([x, y]) => [x, y, -0.95])]; return { V, F: [[0, 1, 2], [3, 4, 5], [0, 1, 4, 3], [1, 2, 5, 4], [2, 0, 3, 5]] }; })(),
     gochu: prism(5, 1.1, 0.7, -Math.PI / 2),
     rokuchu: prism(6, 1.1, 0.65, 0.35),
-    hachi: { V: [[1.15, 0, 0.3], [-1.15, 0, -0.3], [0, 1.35, 0], [0, -1.35, 0], [-0.3, 0, 1.15], [0.3, 0, -1.15]], F: [[0, 2, 4], [0, 4, 3], [0, 3, 5], [0, 5, 2], [1, 2, 4], [1, 4, 3], [1, 3, 5], [1, 5, 2]] },
+    hachi: { V: [[1.15, 0, 0.3], [-1.15, 0, -0.3], [0, 1.19, 0], [0, -1.19, 0], [-0.3, 0, 1.15], [0.3, 0, -1.15]], F: [[0, 2, 4], [0, 4, 3], [0, 3, 5], [0, 5, 2], [1, 2, 4], [1, 4, 3], [1, 3, 5], [1, 5, 2]] },
   };
   const YAW = -0.6, PITCH = 0.42, LIGHT = [-0.45, 0.75, 0.5];
   const rot = ([x, y, z]) => { const c = Math.cos(YAW), s = Math.sin(YAW), x1 = c * x + s * z, z1 = -s * x + c * z, cp = Math.cos(PITCH), sp = Math.sin(PITCH); return [x1, cp * y - sp * z1, sp * y + cp * z1]; };
